@@ -1,4 +1,4 @@
-SRCS		= 
+SRCS		= main.cpp Server.cpp
 
 OBJS		= ${SRCS:.cpp=.o}
 DEPS		= ${SRCS:.cpp=.d}
@@ -6,6 +6,7 @@ DEPS		= ${SRCS:.cpp=.d}
 CXX			= c++
 
 CXXFLAGS	= -std=c++98 -Wall -Wextra -Werror
+CXXFLAGS	+= -g3
 DEPFLAGS	= -MMD -MP
 
 NAME		= ft_irc
