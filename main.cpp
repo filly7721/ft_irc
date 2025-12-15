@@ -19,6 +19,14 @@ int main(int ac, char **av)
 	(void)password;
 
 	Server server(port);
-	server.Start();
+	try
+	{
+		server.Start();
+	}
+	catch (const std::exception &e)
+	{
+		std::cerr << e.what() << '\n';
+	}
+
 	return 0;
 }

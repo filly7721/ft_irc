@@ -11,7 +11,6 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include "Client.hpp"
-#include <cstring>
 
 class Server
 {
@@ -40,12 +39,24 @@ private:
 		const char *what() const throw();
 		~InitialisationError() throw();
 	};
+	class ClientError : public std::exception
+	{
+	private:
+		std::string _message;
+		ClientError();
+
+	public:
+		ClientError(std::string message);
+		const char *what() const throw();
+		~ClientError() throw();
+	};
 
 private:
 	// Default Constructor
 	Server();
 
 	// Functionality
+	void InitSocket();
 	void AcceptNewClient();
 	void ReceiveNewData(int fd);
 	void removeClient(int fd);
