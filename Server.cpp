@@ -1,12 +1,12 @@
 #include "Server.hpp"
 
-Server::InitialisationError::InitialisationError(std::string message) : _message(message)
+Server::InitialisationError::InitialisationError(const std::string &message) : _message("Server Initialisation Error: " + message)
 {
 }
 
 const char *Server::InitialisationError::what() const throw()
 {
-	return ("Server Initialisation Error: " + _message).c_str();
+	return _message.c_str();
 }
 
 Server::InitialisationError::~InitialisationError() throw()
@@ -161,13 +161,13 @@ void Server::AcceptNewClient()
 
 Server::~Server() {}
 
-Server::ClientError::ClientError(std::string message) : _message(message)
+Server::ClientError::ClientError(const std::string &message) : _message("Client Error: " + message)
 {
 }
 
 const char *Server::ClientError::what() const throw()
 {
-	return ("Client Error: " + _message).c_str();
+	return _message.c_str();
 }
 
 Server::ClientError::~ClientError() throw()

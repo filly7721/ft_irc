@@ -26,7 +26,7 @@ public:
 	// operator overloads
 	const Server &operator=(const Server &copy);
 
-private:
+public:
 	// Exception Classes
 	class InitialisationError : public std::exception
 	{
@@ -35,7 +35,7 @@ private:
 		InitialisationError();
 
 	public:
-		InitialisationError(std::string message);
+		InitialisationError(const std::string &message);
 		const char *what() const throw();
 		~InitialisationError() throw();
 	};
@@ -46,7 +46,7 @@ private:
 		ClientError();
 
 	public:
-		ClientError(std::string message);
+		ClientError(const std::string &message);
 		const char *what() const throw();
 		~ClientError() throw();
 	};

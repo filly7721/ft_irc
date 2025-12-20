@@ -5,13 +5,11 @@
 #include <cstdlib>
 #include "Server.hpp"
 
-#define PORT 8080
-
 int main(int ac, char **av)
 {
 	if (ac != 3)
 	{
-		std::cout << "Usage: ./ft_irc <port> <password>" << std::endl;
+		std::cerr << "Usage: ./ft_irc <port> <password>" << std::endl;
 		return 1;
 	}
 	uint16_t port = std::atoi(av[1]);
