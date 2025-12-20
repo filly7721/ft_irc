@@ -1,4 +1,7 @@
 #include "Server.hpp"
+#include <csignal>
+
+bool Server::_stopRunning = false;
 
 Server::InitialisationError::InitialisationError(const std::string &message) : _message("Server Initialisation Error: " + message)
 {
@@ -25,16 +28,16 @@ Server::Server(const Server &copy)
 void Server::Start()
 {
 	InitSocket();
-	while (true)
+	signal(SIGINT, Server::handleSignal);
+	signal(SIGTERM, Server::handleSignal);
+	signal(SIGQUIT, Server::handleSignal);
+	while (!_stopRunning)
 	{
 		try
 		{
 			int poll_count = poll(_poll_fds.data(), _poll_fds.size(), -1);
-			if (poll_count < 0)
-			{
-				close(_socket_fd);
+			if (poll_count < 0 && !_stopRunning)
 				throw std::runtime_error("Poll failed");
-			}
 			for (size_t i = 0; i < _poll_fds.size(); i++)
 			{
 				if ((_poll_fds[i].revents & POLLIN))
@@ -67,6 +70,8 @@ void Server::Start()
 			throw;
 		}
 	}
+	std::cout << std::endl
+			  << "Shutting down server elegently" << std::endl;
 }
 const Server &Server::operator=(const Server &copy)
 {
@@ -127,6 +132,12 @@ void Server::removeAllClients()
 	_poll_fds.clear();
 }
 
+void Server::handleSignal(int signal)
+{
+	if (signal == SIGINT || signal == SIGTERM || signal == SIGQUIT)
+		_stopRunning = true;
+}
+
 void Server::InitSocket()
 {
 	_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -169,7 +180,10 @@ void Server::AcceptNewClient()
 	if (client_socket < 0)
 		throw ClientError("Failed to accept new client");
 	if (fcntl(client_socket, F_SETFL, O_NONBLOCK) == -1)
+	{
+		close(client_socket);
 		throw ClientError("Failed Setting Client Socket to Non-Blocking");
+	}
 	pollfd client_pollfd;
 	client_pollfd.fd = client_socket;
 	client_pollfd.events = POLLIN;
@@ -181,7 +195,11 @@ void Server::AcceptNewClient()
 	std::cout << "Accepted Client with address: " << newClient.getIpAddress() << std::endl;
 }
 
-Server::~Server() {}
+Server::~Server()
+{
+	close(_socket_fd);
+	removeAllClients();
+}
 
 Server::ClientError::ClientError(const std::string &message) : _message("Client Error: " + message)
 {

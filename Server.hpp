@@ -62,6 +62,9 @@ private:
 	void removeClient(int fd);
 	void removeAllClients();
 
+	// Signal Handler
+	static void handleSignal(int signal);
+
 private:
 	// Network Values
 	sockaddr_in _address;
@@ -73,4 +76,7 @@ private:
 	std::vector<struct pollfd> _poll_fds;
 	std::vector<class Client> _clients;
 	std::vector<int> _fdsToRemove;
+
+	// Static Control Flag
+	static bool _stopRunning;
 };
