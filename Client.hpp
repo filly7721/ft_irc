@@ -1,19 +1,33 @@
 #pragma once
 #include <string>
+#include <unistd.h>
 
-// TODO Make Orthodox Canonical Form
 class Client
 {
 private:
-	int Fd;
-	std::string IPadd;
+	int fd;
+	std::string ipAddress;
+	std::string buffer;
+
+	// Constructors and Destructors
+	Client();
 
 public:
-	Client() {};
-	Client(int fd, std::string ipadd) : Fd(fd), IPadd(ipadd) {}
+	// Constructors and Destructors
+	Client(const int fd, const std::string &ipadd);
+	Client(const Client &copy);
+	~Client();
 
-	int GetFd() const { return Fd; }
-	void SetFd(int fd) { Fd = fd; }
-	void setIpAdd(std::string ipadd) { IPadd = ipadd; }
-	std::string getIpAdd() const { return IPadd; }
+	// Getters and Setters
+	int getFd() const;
+	std::string getIpAddress() const;
+
+	void setFd(const int fd);
+	void setIpAddress(const std::string &ipadd);
+
+	// Functionality
+	void addToBuffer(const std::string &str);
+
+	// Operator Overloads
+	const Client &operator=(const Client &copy);
 };

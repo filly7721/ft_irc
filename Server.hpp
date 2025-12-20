@@ -60,6 +60,7 @@ private:
 	void AcceptNewClient();
 	void ReceiveNewData(int fd);
 	void removeClient(int fd);
+	void removeAllClients();
 
 private:
 	// Network Values
@@ -68,7 +69,8 @@ private:
 	int _socket_fd;
 	int _opt;
 
-	// Clients
+	// Clients and Fds
 	std::vector<struct pollfd> _poll_fds;
 	std::vector<class Client> _clients;
+	std::vector<int> _fdsToRemove;
 };

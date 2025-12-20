@@ -37,18 +37,34 @@ void Server::Start()
 			}
 			for (size_t i = 0; i < _poll_fds.size(); i++)
 			{
-				if ((_poll_fds[i].revents & POLLIN) != 0)
+				if ((_poll_fds[i].revents & POLLIN))
 				{
 					if (_poll_fds[i].fd == _socket_fd)
 						AcceptNewClient();
 					else
 						ReceiveNewData(_poll_fds[i].fd);
 				}
+				if (_poll_fds[i].revents & (POLLHUP | POLLNVAL))
+				{
+					_fdsToRemove.push_back(_poll_fds[i].fd);
+				}
 			}
+			for (size_t i = 0; i < _fdsToRemove.size(); i++)
+			{
+				removeClient(_fdsToRemove[i]);
+				std::cout << "Client <" << _fdsToRemove[i] << "> Disconnected" << std::endl;
+			}
+			_fdsToRemove.clear();
 		}
 		catch (const ClientError &e)
 		{
 			std::cerr << e.what() << '\n';
+		}
+		catch (...)
+		{
+			close(_socket_fd);
+			removeAllClients();
+			throw;
 		}
 	}
 }
@@ -70,16 +86,19 @@ void Server::ReceiveNewData(int fd)
 	ssize_t bytes = recv(fd, buff, sizeof(buff) - 1, 0);
 
 	if (bytes <= 0)
-	{
-		// TODO Implement queue to remove clients outside of iteration loop
-		std::cout << "Client <" << fd << "> Disconnected" << std::endl;
-		close(fd);
-		removeClient(fd);
-	}
+		_fdsToRemove.push_back(fd);
 	else
 	{
 		buff[bytes] = '\0';
-		std::cout << "Client <" << fd << "> Data: " << buff;
+		for (std::vector<Client>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+		{
+			if (it->getFd() == fd)
+			{
+				std::cout << "Client <" << fd << "> Data: " << buff << std::endl;
+				it->addToBuffer(std::string(buff));
+				break;
+			}
+		}
 	}
 }
 
@@ -92,17 +111,26 @@ void Server::removeClient(int fd)
 			break;
 		}
 	for (std::vector<Client>::iterator it = _clients.begin(); it < _clients.end(); it++)
-		if (it->GetFd() == fd)
+		if (it->getFd() == fd)
 		{
 			_clients.erase(it);
 			break;
 		}
+	close(fd);
+}
+
+void Server::removeAllClients()
+{
+	for (std::vector<Client>::iterator it = _clients.begin(); it < _clients.end(); it++)
+		close(it->getFd());
+	_clients.clear();
+	_poll_fds.clear();
 }
 
 void Server::InitSocket()
 {
 	_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-	if (_socket_fd == 0)
+	if (_socket_fd == -1)
 		throw InitialisationError("Socket Creation Failed");
 	if (fcntl(_socket_fd, F_SETFL, O_NONBLOCK) == -1)
 	{
@@ -139,15 +167,9 @@ void Server::AcceptNewClient()
 
 	int client_socket = accept(_socket_fd, (struct sockaddr *)&client_address, &client_len);
 	if (client_socket < 0)
-	{
-		close(_socket_fd);
 		throw ClientError("Failed to accept new client");
-	}
 	if (fcntl(client_socket, F_SETFL, O_NONBLOCK) == -1)
-	{
-		close(client_socket);
 		throw ClientError("Failed Setting Client Socket to Non-Blocking");
-	}
 	pollfd client_pollfd;
 	client_pollfd.fd = client_socket;
 	client_pollfd.events = POLLIN;
@@ -156,7 +178,7 @@ void Server::AcceptNewClient()
 
 	Client newClient(client_socket, inet_ntoa(client_address.sin_addr));
 	_clients.push_back(newClient);
-	std::cout << "Accepted Client with address: " << newClient.getIpAdd() << std::endl;
+	std::cout << "Accepted Client with address: " << newClient.getIpAddress() << std::endl;
 }
 
 Server::~Server() {}
