@@ -87,6 +87,7 @@ const Server &Server::operator=(const Server &copy)
 }
 void Server::ReceiveNewData(int fd)
 {
+	// TODO check if theres a way to do this with more than 1024
 	char buff[1024] = {0};
 	ssize_t bytes = recv(fd, buff, sizeof(buff) - 1, 0);
 
