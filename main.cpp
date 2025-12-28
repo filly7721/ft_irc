@@ -1,9 +1,9 @@
 #include <unistd.h>
-
 #include <cstring>
 #include <iostream>
 #include <cstdlib>
-#include "Server.hpp"
+#include "ft_irc.h"
+Server *g_server = NULL;
 
 int main(int ac, char **av)
 {
@@ -12,14 +12,19 @@ int main(int ac, char **av)
 		std::cerr << "Usage: ./ft_irc <port> <password>" << std::endl;
 		return 1;
 	}
+
+	signal(SIGINT, handleSignal);
+	signal(SIGTERM, handleSignal);
+	signal(SIGQUIT, handleSignal);
+
 	uint16_t port = std::atoi(av[1]);
 	std::string password = av[2];
 	(void)password;
 
-	Server server(port);
+	g_server = new Server(port, password);
 	try
 	{
-		server.Start();
+		g_server->Start();
 	}
 	catch (const std::exception &e)
 	{

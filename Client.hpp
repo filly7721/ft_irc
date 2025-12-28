@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <unistd.h>
+#include "ft_irc.h"
 
 class Client
 {

@@ -1,7 +1,4 @@
 #include "Server.hpp"
-#include <csignal>
-
-bool Server::_stopRunning = false;
 
 Server::InitialisationError::InitialisationError(const std::string &message) : _message("Server Initialisation Error: " + message)
 {
@@ -16,7 +13,7 @@ Server::InitialisationError::~InitialisationError() throw()
 {
 }
 
-Server::Server(int port) : _port(port), _opt(1)
+Server::Server(int port, const std::string &password) : _port(port), _password(password)
 {
 }
 
@@ -28,9 +25,6 @@ Server::Server(const Server &copy)
 void Server::Start()
 {
 	InitSocket();
-	signal(SIGINT, Server::handleSignal);
-	signal(SIGTERM, Server::handleSignal);
-	signal(SIGQUIT, Server::handleSignal);
 	while (!_stopRunning)
 	{
 		try
@@ -73,6 +67,17 @@ void Server::Start()
 	std::cout << std::endl
 			  << "Shutting down server elegently" << std::endl;
 }
+
+void Server::setStopRunning(bool value)
+{
+	_stopRunning = value;
+}
+
+const std::string &Server::getPassword() const
+{
+	return _password;
+}
+
 const Server &Server::operator=(const Server &copy)
 {
 	if (this == &copy)
@@ -80,11 +85,12 @@ const Server &Server::operator=(const Server &copy)
 
 	_address = copy._address;
 	_port = copy._port;
+	_password = copy._password;
 	_socket_fd = copy._socket_fd;
-	_opt = copy._opt;
 
 	return *this;
 }
+
 void Server::ReceiveNewData(int fd)
 {
 	// TODO check if theres a way to do this with more than 1024
@@ -133,14 +139,9 @@ void Server::removeAllClients()
 	_poll_fds.clear();
 }
 
-void Server::handleSignal(int signal)
-{
-	if (signal == SIGINT || signal == SIGTERM || signal == SIGQUIT)
-		_stopRunning = true;
-}
-
 void Server::InitSocket()
 {
+	int opt;
 	_socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (_socket_fd == -1)
 		throw InitialisationError("Socket Creation Failed");
@@ -149,7 +150,8 @@ void Server::InitSocket()
 		close(_socket_fd);
 		throw InitialisationError("Failed to set socket to non-blocking");
 	}
-	setsockopt(_socket_fd, SOL_SOCKET, SO_REUSEADDR, &_opt, sizeof(_opt));
+	opt = 1;
+	setsockopt(_socket_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
 	_address.sin_family = AF_INET;
 	_address.sin_addr.s_addr = INADDR_ANY;

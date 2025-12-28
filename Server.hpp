@@ -16,12 +16,16 @@ class Server
 {
 public:
 	// Constructors and Destructors
-	Server(int port);
+	Server(int port, const std::string &password);
 	Server(const Server &copy);
 	~Server();
 
 	// Functionality
 	void Start();
+
+	// Setters and Getters
+	void setStopRunning(bool value);
+	const std::string &getPassword() const;
 
 	// operator overloads
 	const Server &operator=(const Server &copy);
@@ -62,21 +66,20 @@ private:
 	void removeClient(int fd);
 	void removeAllClients();
 
-	// Signal Handler
-	static void handleSignal(int signal);
-
 private:
 	// Network Values
 	sockaddr_in _address;
 	in_port_t _port;
 	int _socket_fd;
-	int _opt;
 
 	// Clients and Fds
 	std::vector<struct pollfd> _poll_fds;
 	std::vector<class Client> _clients;
 	std::vector<int> _fdsToRemove;
 
-	// Static Control Flag
-	static bool _stopRunning;
+	// Control Flag
+	bool _stopRunning;
+
+	// Server Password
+	std::string _password;
 };
