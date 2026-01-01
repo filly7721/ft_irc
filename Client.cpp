@@ -33,6 +33,17 @@ void Client::addToBuffer(const std::string &str)
 	buffer += str;
 }
 
+void Client::handleBuffer()
+{
+	size_t pos;
+	while ((pos = buffer.find("\n")) != std::string::npos)
+	{
+		std::string line = buffer.substr(0, pos);
+		buffer.erase(0, pos + 1);
+		Command command = parseMessage(line);
+	}
+}
+
 const Client &Client::operator=(const Client &copy)
 {
 	if (this == &copy)

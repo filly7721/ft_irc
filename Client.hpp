@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <unistd.h>
+#include "Server.hpp"
 #include "ft_irc.h"
 
 class Client
@@ -28,6 +29,7 @@ public:
 
 	// Functionality
 	void addToBuffer(const std::string &str);
+	void handleBuffer();
 
 	// Operator Overloads
 	const Client &operator=(const Client &copy);
