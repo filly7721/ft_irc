@@ -6,32 +6,13 @@
 
 Server *g_server = NULL;
 
-Command parseMessage(const std::string &message)
-{
-	std::vector<std::string> tokens;
-	std::stringstream ss(message);
-	std::string token;
-	while (ss >> token)
-	{
-		tokens.push_back(token);
-	}
-	Command command;
-	for (size_t i = 0; i < tokens.size(); i++)
-	{
-		if (i == 0)
-			command.name = tokens[i];
-		else
-			command.params.push_back(tokens[i]);
-	}
-	return command;
-}
-
 void handleSignal(int signal)
 {
 	if (signal == SIGINT || signal == SIGTERM || signal == SIGQUIT)
 		g_server->setStopRunning(true);
 }
 
+#include <istream>
 int main(int ac, char **av)
 {
 	if (ac != 3)
@@ -40,23 +21,33 @@ int main(int ac, char **av)
 		return 1;
 	}
 
-	signal(SIGINT, handleSignal);
-	signal(SIGTERM, handleSignal);
-	signal(SIGQUIT, handleSignal);
-
-	uint16_t port = std::atoi(av[1]);
-	std::string password = av[2];
-	(void)password;
-
-	g_server = new Server(port, password);
-	try
+	while (1)
 	{
-		g_server->Start();
+		std::string str;
+		std::getline(std::cin, str);
+		printCommand(parseMessage(str));
+		// // copyTillSpace test
+		// std::cout << "#" << copyTillSpace(str, 0) << "#" << std::endl;
 	}
-	catch (const std::exception &e)
-	{
-		std::cerr << e.what() << '\n';
-	}
+
+
+	// signal(SIGINT, handleSignal);
+	// signal(SIGTERM, handleSignal);
+	// signal(SIGQUIT, handleSignal);
+
+	// uint16_t port = std::atoi(av[1]);
+	// std::string password = av[2];
+	// (void)password;
+
+	// g_server = new Server(port, password);
+	// try
+	// {
+	// 	g_server->Start();
+	// }
+	// catch (const std::exception &e)
+	// {
+	// 	std::cerr << e.what() << '\n';
+	// }
 
 	return 0;
 }

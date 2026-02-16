@@ -1,11 +1,12 @@
-SRCS		= main.cpp Server.cpp Client.cpp
+SRCS		= main.cpp Server.cpp Client.cpp Parsing.cpp
 
 OBJS		= ${SRCS:.cpp=.o}
 DEPS		= ${SRCS:.cpp=.d}
 
 CXX			= c++
 
-CXXFLAGS	= -std=c++98 -Wall -Wextra -Werror
+CXXFLAGS	= -std=c++98 
+# CXXFLAGS	+= -Wall -Wextra -Werror
 CXXFLAGS	+= -g3
 DEPFLAGS	= -MMD -MP
 

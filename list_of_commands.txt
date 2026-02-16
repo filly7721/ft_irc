@@ -1,0 +1,52 @@
+This is a list of commands to use as reference when parsing or whatever - lyall
+
+--------------------------------------------------------------
+
+PASS password
+NICK nickname
+USER username 0 * :realname
+
+PING :server
+PONG :server
+
+JOIN #channel
+JOIN #channel1,#channel2
+PART #channel
+PART #channel :leaving message
+
+PRIVMSG target :message
+PRIVMSG #channel :message
+PRIVMSG nickname :message
+
+NOTICE target :message
+
+QUIT
+QUIT :quit message
+
+TOPIC #channel
+TOPIC #channel :new topic
+
+NAMES #channel
+LIST
+LIST #channel
+
+MODE #channel
+MODE #channel +i
+MODE #channel -i
+MODE #channel +o nickname
+MODE #channel -o nickname
+
+INVITE nickname #channel
+KICK #channel nickname
+KICK #channel nickname :reason
+
+WHO
+WHO #channel
+WHOIS nickname
+
+AWAY
+AWAY :away message
+
+CAP LS
+CAP REQ :multi-prefix
+CAP END

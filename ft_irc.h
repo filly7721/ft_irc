@@ -11,8 +11,12 @@ extern Server *g_server;
 struct Command
 {
 	std::string prefix;
-	std::string name;
+	std::string cmnd;
 	std::vector<std::string> params;
 };
 
-Command parseMessage(const std::string &message);
+// parsing
+Command		parseMessage(const std::string &message);
+void		printCommand(Command com);
+std::string	copyTillSpace(const std::string string, size_t start);
+size_t		skipWord(const std::string string, size_t start);
