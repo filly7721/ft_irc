@@ -1,6 +1,12 @@
 This is a list of commands to use as reference when parsing or whatever - lyall
 
 --------------------------------------------------------------
+=============  nc  =============
+
+:prefix command param1 param2 :param param param param
+    :prefix     command       param1    param2        :param      param   param    param     
+--------------------------------------------------------------
+
 
 PASS password
 NICK nickname

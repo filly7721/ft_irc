@@ -27,19 +27,30 @@ Command parseMessage(const std::string &message)
 	
 	Command command;
 	
+	// 
 	if (message[i] == ':')
-		command.prefix.push_back(copyTillSpace(message, i + 1));
-
+	{
+		command.prefix = copyTillSpace(message, i + 1);
+		i = skipWord(message, i);
+	}
+	bool cmnd_bool = false;
 	while (i < message.size())
 	{
 		while (isspace(message[i]) == true)
 			i++;
-		if (message[i] == ':')
+		if (cmnd_bool == false)
 		{
-			command.params.push_back(string.substr(i + 1, message.length() - (i + 1)));
+			command.cmnd = copyTillSpace(message, i);
+			i = skipWord(message, i);
+			cmnd_bool = true;
+		}
+		else if (message[i] == ':')
+		{
+			command.params.push_back(message.substr(i + 1, message.length() - (i + 1)));
 			return (command);
 		}
-		command.prefix.push_back(copyTillSpace(message, i));
+		else
+			command.params.push_back(copyTillSpace(message, i));
 		i = skipWord(message, i);
 	}
 	return (command);
