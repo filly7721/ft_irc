@@ -27,7 +27,6 @@ Command parseMessage(const std::string &message)
 	
 	Command command;
 	
-	// 
 	if (message[i] == ':')
 	{
 		command.prefix = copyTillSpace(message, i + 1);
@@ -36,7 +35,7 @@ Command parseMessage(const std::string &message)
 	bool cmnd_bool = false;
 	while (i < message.size())
 	{
-		while (isspace(message[i]) == true)
+		while (isspace(message[i]) == true && i < message.size())
 			i++;
 		if (cmnd_bool == false)
 		{
@@ -53,6 +52,7 @@ Command parseMessage(const std::string &message)
 			command.params.push_back(copyTillSpace(message, i));
 		i = skipWord(message, i);
 	}
+	// check if theres a command, otherwise invalid (not sure where this check should be)
 	return (command);
 }
 
