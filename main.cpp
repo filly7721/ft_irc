@@ -21,6 +21,7 @@ int main(int ac, char **av)
 		return 1;
 	}
 
+	(void)av;
 	while (1)
 	{
 		std::string str;

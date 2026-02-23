@@ -11,7 +11,7 @@ extern Server *g_server;
 struct Command
 {
 	std::string prefix;
-	std::string cmnd;
+	std::string cmd;
 	std::vector<std::string> params;
 };
 

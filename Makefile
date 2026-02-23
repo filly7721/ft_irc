@@ -6,7 +6,7 @@ DEPS		= ${SRCS:.cpp=.d}
 CXX			= c++
 
 CXXFLAGS	= -std=c++98 
-# CXXFLAGS	+= -Wall -Wextra -Werror
+CXXFLAGS	+= -Wall -Wextra -Werror
 CXXFLAGS	+= -g3
 DEPFLAGS	= -MMD -MP
 
