@@ -25,7 +25,10 @@ public:
 
 	// Setters and Getters
 	void setStopRunning(bool value);
+	const std::string getName() const;
 	const std::string &getPassword() const;
+
+	void sendToClient(int fd, const std::string &message);
 
 	// operator overloads
 	const Server &operator=(const Server &copy);

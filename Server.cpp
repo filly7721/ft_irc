@@ -52,6 +52,10 @@ void Server::Start()
 				std::cout << "Client <" << _fdsToRemove[i] << "> Disconnected" << std::endl;
 			}
 			_fdsToRemove.clear();
+			for (size_t i = 0; i < _clients.size(); i++)
+			{
+				_clients[i].handleBuffer();
+			}
 		}
 		catch (const ClientError &e)
 		{
@@ -71,6 +75,11 @@ void Server::Start()
 void Server::setStopRunning(bool value)
 {
 	_stopRunning = value;
+}
+
+const std::string Server::getName() const
+{
+	return "ric";
 }
 
 const std::string &Server::getPassword() const
@@ -196,6 +205,15 @@ void Server::AcceptNewClient()
 	Client newClient(client_socket, inet_ntoa(client_address.sin_addr));
 	_clients.push_back(newClient);
 	std::cout << "Accepted Client with address: " << newClient.getIpAddress() << std::endl;
+}
+
+void Server::sendToClient(int fd, const std::string &message)
+{
+	for (std::vector<Client>::iterator it = _clients.begin(); it < _clients.end(); it++)
+		if (it->getFd() == fd)
+		{
+			it->sendToClient(message);
+		}
 }
 
 Server::~Server()
