@@ -57,6 +57,11 @@ void Client::setIpAddress(const std::string &ipadd)
 	_ipAddress = ipadd;
 }
 
+void Client::setNickname(const std::string &nickname)
+{
+	_nickname = nickname;
+}
+
 void Client::addToBuffer(const std::string &str)
 {
 	_buffer += str;
@@ -91,6 +96,8 @@ void Client::handleBuffer()
 			cmdPass(command);
 		else if (command.name == "USER")
 			cmdUser(command);
+		else if (command.name == "PRIVMSG")
+			cmdPrivmsg(command);
 	}
 }
 
@@ -164,6 +171,30 @@ void Client::cmdUser(const Command &cmd)
 	}
 }
 
+void Client::cmdPrivmsg(const Command &cmd)
+{
+	std::string target = cmd.params[0];
+	std::string message = cmd.params[cmd.params.size() - 1];
+	if (target.find_first_of(",") != std::string::npos)
+	{
+		sendNumeric(ERR_NORECIPIENT, "Multiple recipients not supported");
+		return;
+	}
+	const Client *recipient = g_server->getClientByNick(target);
+	if (!recipient)
+	{
+		sendNumeric(ERR_NORECIPIENT, "No recipient given");
+		return;
+	}
+	if (message.empty())
+	{
+		sendNumeric(ERR_NOTEXTTOSEND, "No text to send");
+		return;
+	}
+	std::string fullMessage = ":" + _nickname + " PRIVMSG " + target + " :" + message;
+	g_server->sendToClient(recipient->getFd(), fullMessage);
+}
+
 void Client::cmdCAP(const Command &cmd)
 {
 	if (cmd.params.empty())
@@ -183,6 +214,11 @@ const Client &Client::operator=(const Client &copy)
 	_fd = copy._fd;
 	_ipAddress = copy._ipAddress;
 	_buffer = copy._buffer;
+	_nickname = copy._nickname;
+	_username = copy._username;
+	_realname = copy._realname;
+	_isRegistered = copy._isRegistered;
+	_isAuthenticated = copy._isAuthenticated;
 
 	return *this;
 }
@@ -190,4 +226,9 @@ const Client &Client::operator=(const Client &copy)
 std::string Client::getIpAddress() const
 {
 	return _ipAddress;
+}
+
+std::string Client::getNickname() const
+{
+	return _nickname;
 }

@@ -57,6 +57,6 @@ int main(int ac, char **av)
 	{
 		std::cerr << e.what() << '\n';
 	}
-
+	delete g_server;
 	return 0;
 }

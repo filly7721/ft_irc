@@ -12,6 +12,8 @@
 #include <iostream>
 #include "Client.hpp"
 
+class Client;
+
 class Server
 {
 public:
@@ -27,7 +29,9 @@ public:
 	void setStopRunning(bool value);
 	const std::string getName() const;
 	const std::string &getPassword() const;
+	const Client *getClientByNick(const std::string &nick) const;
 
+	// Functionality
 	void sendToClient(int fd, const std::string &message);
 
 	// operator overloads

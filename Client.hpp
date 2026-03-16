@@ -13,6 +13,9 @@ typedef enum e_numeric
 	ERR_NICKNAMEINUSE = 433,
 	ERR_NEEDMOREPARAMS = 461,
 	ERR_ALREADYREGISTRED = 462,
+	ERR_NORECIPIENT = 411,
+	ERR_NOTEXTTOSEND = 412,
+	RPL_NOTOPIC = 331,
 } t_numeric;
 class Client
 {
@@ -40,9 +43,11 @@ public:
 	// Getters and Setters
 	int getFd() const;
 	std::string getIpAddress() const;
+	std::string getNickname() const;
 
 	void setFd(const int fd);
 	void setIpAddress(const std::string &ipadd);
+	void setNickname(const std::string &nickname);
 
 	// Functionality
 	void addToBuffer(const std::string &str);
@@ -56,6 +61,7 @@ public:
 	void cmdNick(const Command &cmd);
 	void cmdPass(const Command &cmd);
 	void cmdUser(const Command &cmd);
+	void cmdPrivmsg(const Command &cmd);
 
 	// Operator Overloads
 	const Client &operator=(const Client &copy);

@@ -13,7 +13,7 @@ Server::InitialisationError::~InitialisationError() throw()
 {
 }
 
-Server::Server(int port, const std::string &password) : _port(port), _password(password)
+Server::Server(int port, const std::string &password) : _port(port), _stopRunning(false), _password(password)
 {
 }
 
@@ -85,6 +85,16 @@ const std::string Server::getName() const
 const std::string &Server::getPassword() const
 {
 	return _password;
+}
+
+const Client *Server::getClientByNick(const std::string &nick) const
+{
+	for (std::vector<Client>::const_iterator it = _clients.begin(); it != _clients.end(); ++it)
+	{
+		if (it->getNickname() == nick)
+			return &(*it);
+	}
+	return NULL;
 }
 
 const Server &Server::operator=(const Server &copy)
