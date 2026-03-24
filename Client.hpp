@@ -1,7 +1,6 @@
 #pragma once
 #include <string>
 #include <unistd.h>
-#include "Server.hpp"
 #include "ft_irc.h"
 
 struct Command;
@@ -13,9 +12,18 @@ typedef enum e_numeric
 	ERR_NICKNAMEINUSE = 433,
 	ERR_NEEDMOREPARAMS = 461,
 	ERR_ALREADYREGISTRED = 462,
+	ERR_PASSWDMISMATCH = 464,
+	ERR_NOSUCHCHANNEL = 403,
+	ERR_NOTONCHANNEL = 442,
+	ERR_INVITEONLYCHAN = 473,
+	ERR_CHANNELISFULL = 471,
+	ERR_BADCHANNELKEY = 475,
 	ERR_NORECIPIENT = 411,
 	ERR_NOTEXTTOSEND = 412,
 	RPL_NOTOPIC = 331,
+	RPL_TOPIC = 332,
+	RPL_NAMREPLY = 353,
+	RPL_ENDOFNAMES = 366,
 } t_numeric;
 class Client
 {
@@ -62,6 +70,8 @@ public:
 	void cmdPass(const Command &cmd);
 	void cmdUser(const Command &cmd);
 	void cmdPrivmsg(const Command &cmd);
+	void cmdJoin(const Command &cmd);
+	void cmdPart(const Command &cmd);
 
 	// Operator Overloads
 	const Client &operator=(const Client &copy);

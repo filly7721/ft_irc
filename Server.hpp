@@ -5,12 +5,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <vector>
+#include <map>
 #include <string>
 #include <poll.h>
 #include <stdexcept>
 #include <arpa/inet.h>
 #include <iostream>
 #include "Client.hpp"
+#include "Channel.hpp"
 
 class Client;
 
@@ -30,9 +32,17 @@ public:
 	const std::string getName() const;
 	const std::string &getPassword() const;
 	const Client *getClientByNick(const std::string &nick) const;
+	Client *getClientByFd(int fd);
+	const Client *getClientByFd(int fd) const;
+	Channel *getChannel(const std::string &name);
+	const Channel *getChannel(const std::string &name) const;
+	Channel &createChannel(const std::string &name, int creatorFd);
 
 	// Functionality
 	void sendToClient(int fd, const std::string &message);
+	void broadcastToChannel(const std::string &name, const std::string &message, int exceptFd);
+	void removeClientFromAllChannels(int fd, const std::string &reason);
+	void removeChannelIfEmpty(const std::string &name);
 
 	// operator overloads
 	const Server &operator=(const Server &copy);
@@ -81,7 +91,8 @@ private:
 
 	// Clients and Fds
 	std::vector<struct pollfd> _poll_fds;
-	std::vector<class Client> _clients;
+	std::map<int, class Client *> _clients;
+	std::map<std::string, Channel> _channels;
 	std::vector<int> _fdsToRemove;
 
 	// Control Flag

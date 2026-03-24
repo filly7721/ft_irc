@@ -1,4 +1,4 @@
-SRCS		= main.cpp Server.cpp Client.cpp
+SRCS		= main.cpp Server.cpp Client.cpp Channel.cpp
 
 OBJS		= ${SRCS:.cpp=.o}
 DEPS		= ${SRCS:.cpp=.d}

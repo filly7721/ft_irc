@@ -3,25 +3,40 @@
 #include <iostream>
 #include <cstdlib>
 #include "ft_irc.h"
+#include "Server.hpp"
 
 Server *g_server = NULL;
 
 Command parseMessage(const std::string &message)
 {
-	std::vector<std::string> tokens;
-	std::stringstream ss(message);
+	Command command;
+	std::string line = message;
+	if (!line.empty() && line[line.size() - 1] == '\r')
+		line.erase(line.size() - 1);
+	if (line.empty())
+		return command;
+
+	std::stringstream ss(line);
 	std::string token;
+	if (!(ss >> command.name))
+		return command;
+
 	while (ss >> token)
 	{
-		tokens.push_back(token);
-	}
-	Command command;
-	for (size_t i = 0; i < tokens.size(); i++)
-	{
-		if (i == 0)
-			command.name = tokens[i];
+		if (!token.empty() && token[0] == ':')
+		{
+			token.erase(0, 1);
+			std::string trailing;
+			std::getline(ss, trailing);
+			if (!trailing.empty() && trailing[0] == ' ')
+				trailing.erase(0, 1);
+			if (!trailing.empty())
+				token += " " + trailing;
+			command.params.push_back(token);
+			break;
+		}
 		else
-			command.params.push_back(tokens[i]);
+			command.params.push_back(token);
 	}
 	return command;
 }
@@ -29,7 +44,10 @@ Command parseMessage(const std::string &message)
 void handleSignal(int signal)
 {
 	if (signal == SIGINT || signal == SIGTERM || signal == SIGQUIT)
-		g_server->setStopRunning(true);
+	{
+		if (g_server)
+			g_server->setStopRunning(true);
+	}
 }
 
 int main(int ac, char **av)
@@ -44,7 +62,7 @@ int main(int ac, char **av)
 	signal(SIGTERM, handleSignal);
 	signal(SIGQUIT, handleSignal);
 
-	uint16_t port = std::atoi(av[1]);
+	int port = std::atoi(av[1]);
 	std::string password = av[2];
 	(void)password;
 

@@ -1,4 +1,31 @@
 #include "Client.hpp"
+#include "Server.hpp"
+#include "Channel.hpp"
+#include <sys/socket.h>
+
+std::vector<std::string> splitByComma(const std::string &value)
+{
+	std::vector<std::string> parts;
+	std::string current;
+	for (size_t i = 0; i < value.size(); ++i)
+	{
+		if (value[i] == ',')
+		{
+			parts.push_back(current);
+			current.clear();
+			continue;
+		}
+		current += value[i];
+	}
+	parts.push_back(current);
+	return parts;
+}
+
+std::string buildPrefix(const Client &client)
+{
+	std::string nick = client.getNickname().empty() ? "*" : client.getNickname();
+	return nick + "!*@" + client.getIpAddress();
+}
 
 bool Client::isValidNickname(const std::string &nick)
 {
@@ -98,6 +125,21 @@ void Client::handleBuffer()
 			cmdUser(command);
 		else if (command.name == "PRIVMSG")
 			cmdPrivmsg(command);
+		else if (command.name == "JOIN")
+			cmdJoin(command);
+		else if (command.name == "PART")
+			cmdPart(command);
+	}
+}
+
+void Client::cmdCAP(const Command &cmd)
+{
+	if (cmd.params.empty())
+		return;
+	if (cmd.params[0] == "LS")
+	{
+		std::string store = "ircserv CAP " + (_nickname.empty() ? "*" : _nickname) + " LS :";
+		g_server->sendToClient(_fd, store);
 	}
 }
 
@@ -109,15 +151,21 @@ void Client::cmdNick(const Command &cmd)
 		return;
 	}
 	if (!isValidNickname(cmd.params[0]))
+	{
 		sendNumeric(ERR_ERRONEUSNICKNAME, "Nickname not valid");
-	// if (cmd.params[0] == "used")
-	// 	sendNumeric(ERR_NICKNAMEINUSE);
-
+		return;
+	}
+	const Client *existing = g_server->getClientByNick(cmd.params[0]);
+	if (existing && existing->getFd() != _fd)
+	{
+		sendNumeric(ERR_NICKNAMEINUSE, "Nickname is already in use");
+		return;
+	}
 	std::string oldNick = _nickname;
 	_nickname = cmd.params[0];
 	if (!oldNick.empty())
 	{
-		std::string message = std::string(":") + oldNick + " NICK " + _nickname;
+		std::string message = ":" + oldNick + " NICK :" + _nickname;
 		sendToClient(message);
 	}
 }
@@ -126,17 +174,17 @@ void Client::cmdPass(const Command &cmd)
 {
 	if (cmd.params.empty())
 	{
-		sendNumeric(ERR_NEEDMOREPARAMS, "No password given");
+		sendNumeric(ERR_NEEDMOREPARAMS, "PASS :Not enough parameters");
 		return;
 	}
 	if (_isRegistered)
 	{
-		sendNumeric(ERR_ALREADYREGISTRED, "Already registered");
+		sendNumeric(ERR_ALREADYREGISTRED, "You may not reregister");
 		return;
 	}
 	if (g_server->getPassword() != cmd.params[0])
 	{
-		// maybe send err idk
+		sendNumeric(ERR_PASSWDMISMATCH, ":Password incorrect");
 		return;
 	}
 	_isAuthenticated = true;
@@ -146,63 +194,168 @@ void Client::cmdUser(const Command &cmd)
 {
 	if (cmd.params.size() < 4)
 	{
-		sendNumeric(ERR_NEEDMOREPARAMS, "Missing params");
+		sendNumeric(ERR_NEEDMOREPARAMS, "USER :Not enough parameters");
 		return;
 	}
 	if (_isRegistered)
 	{
-		sendNumeric(ERR_ALREADYREGISTRED, "Already registered");
+		sendNumeric(ERR_ALREADYREGISTRED, "You may not reregister");
 		return;
 	}
 	_username = cmd.params[0];
 	_realname = cmd.params[3];
-	if (_isAuthenticated && _nickname != "" && _username != "" && _realname != "")
+	if (_isAuthenticated && !_nickname.empty() && !_username.empty() && !_realname.empty())
 	{
 		_isRegistered = true;
 		sendNumeric((t_numeric)001, "Welcome to the Internet Relay Network " + _nickname + "!" + _username + "@" + _ipAddress);
 		sendNumeric((t_numeric)002, "Your host is " + g_server->getName() + ", running version 1.0");
 		sendNumeric((t_numeric)003, "This server was created today");
 		sendNumeric((t_numeric)004, g_server->getName() + " 1.0 o itkol");
-		sendNumeric((t_numeric)005, "CHANTYPES=# PREFIX=(o)@ CHANLIMIT=#:10 CHANNELLEN=50 NICKLEN=9 NETWORK=" + g_server->getName() + " : are supported by this server");
-		sendNumeric((t_numeric)375, ": - ircserv Message of the day - ");
-		sendNumeric((t_numeric)372, ": - Welcome to the IRC server!");
-		sendNumeric((t_numeric)372, ": - This server is ready for use.");
-		sendNumeric((t_numeric)376, ": End of /MOTD command");
+		sendNumeric((t_numeric)005, "CHANTYPES=# PREFIX=(o)@ CHANLIMIT=#:10 CHANNELLEN=50 NICKLEN=9 NETWORK=" + g_server->getName() + " :are supported by this server");
+		sendNumeric((t_numeric)375, ":- ircserv Message of the day -");
+		sendNumeric((t_numeric)372, ":- Welcome to the IRC server!");
+		sendNumeric((t_numeric)372, ":- This server is ready for use.");
+		sendNumeric((t_numeric)376, ":End of /MOTD command");
 	}
 }
 
 void Client::cmdPrivmsg(const Command &cmd)
 {
-	std::string target = cmd.params[0];
-	std::string message = cmd.params[cmd.params.size() - 1];
-	if (target.find_first_of(",") != std::string::npos)
+	if (cmd.params.empty())
 	{
-		sendNumeric(ERR_NORECIPIENT, "Multiple recipients not supported");
+		sendNumeric(ERR_NORECIPIENT, "PRIVMSG :No recipient given");
+		return;
+	}
+	if (cmd.params.size() < 2 || cmd.params[1].empty())
+	{
+		sendNumeric(ERR_NOTEXTTOSEND, ":No text to send");
+		return;
+	}
+	std::string target = cmd.params[0];
+	std::string message = cmd.params[1];
+	if (target.find_first_of(',') != std::string::npos)
+	{
+		sendNumeric(ERR_NORECIPIENT, "PRIVMSG :Multiple recipients not supported");
+		return;
+	}
+	if (!target.empty() && target[0] == '#')
+	{
+		Channel *channel = g_server->getChannel(target);
+		if (!channel)
+		{
+			sendNumeric(ERR_NOSUCHCHANNEL, target + " :No such channel");
+			return;
+		}
+		if (!channel->hasMember(_fd))
+		{
+			sendNumeric(ERR_NOTONCHANNEL, target + " :You're not on that channel");
+			return;
+		}
+		g_server->broadcastToChannel(target, ":" + buildPrefix(*this) + " PRIVMSG " + target + " :" + message, _fd);
 		return;
 	}
 	const Client *recipient = g_server->getClientByNick(target);
 	if (!recipient)
 	{
-		sendNumeric(ERR_NORECIPIENT, "No recipient given");
+		sendNumeric(ERR_NORECIPIENT, "PRIVMSG :No recipient given");
 		return;
 	}
-	if (message.empty())
-	{
-		sendNumeric(ERR_NOTEXTTOSEND, "No text to send");
-		return;
-	}
-	std::string fullMessage = ":" + _nickname + " PRIVMSG " + target + " :" + message;
-	g_server->sendToClient(recipient->getFd(), fullMessage);
+	g_server->sendToClient(recipient->getFd(), ":" + buildPrefix(*this) + " PRIVMSG " + target + " :" + message);
 }
 
-void Client::cmdCAP(const Command &cmd)
+void Client::cmdJoin(const Command &cmd)
 {
-	if (cmd.params.empty())
-		return;
-	if (cmd.params[0] == "LS")
+	if (cmd.params.empty() || cmd.params[0].empty())
 	{
-		std::string store = "ircserv CAP " + (_nickname.empty() ? "*" : _nickname) + " LS :\r\n";
-		g_server->sendToClient(_fd, store);
+		sendNumeric(ERR_NEEDMOREPARAMS, "JOIN :Not enough parameters");
+		return;
+	}
+	std::vector<std::string> channels = splitByComma(cmd.params[0]);
+	std::vector<std::string> keys;
+	if (cmd.params.size() > 1)
+		keys = splitByComma(cmd.params[1]);
+	for (size_t index = 0; index < channels.size(); ++index)
+	{
+		const std::string &channelName = channels[index];
+		if (channelName.empty() || channelName[0] != '#')
+		{
+			sendNumeric(ERR_NOSUCHCHANNEL, channelName + " :No such channel");
+			continue;
+		}
+		const std::string key = (index < keys.size()) ? keys[index] : "";
+		Channel *channel = g_server->getChannel(channelName);
+		if (!channel)
+			channel = &g_server->createChannel(channelName, _fd);
+		if (channel->hasMember(_fd))
+			continue;
+		if (channel->isInviteOnly() && !channel->isInvited(_fd))
+		{
+			sendNumeric(ERR_INVITEONLYCHAN, channelName + " :Cannot join channel (+i)");
+			continue;
+		}
+		if (!channel->getKey().empty() && channel->getKey() != key)
+		{
+			sendNumeric(ERR_BADCHANNELKEY, channelName + " :Cannot join channel (+k)");
+			continue;
+		}
+		if (channel->isFull())
+		{
+			sendNumeric(ERR_CHANNELISFULL, channelName + " :Cannot join channel (+l)");
+			continue;
+		}
+		channel->addMember(_fd);
+		channel->removeInvite(_fd);
+		std::string joinMsg = ":" + buildPrefix(*this) + " JOIN :" + channelName;
+		g_server->broadcastToChannel(channelName, joinMsg, -1);
+		if (channel->getTopic().empty())
+			sendNumeric(RPL_NOTOPIC, channelName + " :No topic is set");
+		else
+			sendNumeric(RPL_TOPIC, channelName + " :" + channel->getTopic());
+		std::string names;
+		const std::set<int> &members = channel->getMembers();
+		for (std::set<int>::const_iterator it = members.begin(); it != members.end(); ++it)
+		{
+			const Client *memberClient = g_server->getClientByFd(*it);
+			if (!memberClient)
+				continue;
+			if (!names.empty())
+				names += " ";
+			if (channel->isOperator(*it))
+				names += "@";
+			names += memberClient->getNickname();
+		}
+		sendNumeric(RPL_NAMREPLY, "= " + channelName + " :" + names);
+		sendNumeric(RPL_ENDOFNAMES, channelName + " :End of /NAMES list");
+	}
+}
+
+void Client::cmdPart(const Command &cmd)
+{
+	if (cmd.params.empty() || cmd.params[0].empty())
+	{
+		sendNumeric(ERR_NEEDMOREPARAMS, "PART :Not enough parameters");
+		return;
+	}
+	std::vector<std::string> channels = splitByComma(cmd.params[0]);
+
+	for (size_t index = 0; index < channels.size(); ++index)
+	{
+		const std::string &channelName = channels[index];
+		Channel *channel = g_server->getChannel(channelName);
+		if (!channel)
+		{
+			sendNumeric(ERR_NOSUCHCHANNEL, channelName + " :No such channel");
+			continue;
+		}
+		if (!channel->hasMember(_fd))
+		{
+			sendNumeric(ERR_NOTONCHANNEL, channelName + " :You're not on that channel");
+			continue;
+		}
+		std::string partMsg = ":" + buildPrefix(*this) + " PART " + channelName;
+		g_server->broadcastToChannel(channelName, partMsg, -1);
+		channel->removeMember(_fd);
+		g_server->removeChannelIfEmpty(channelName);
 	}
 }
 
