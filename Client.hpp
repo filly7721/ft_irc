@@ -18,6 +18,7 @@ typedef enum e_numeric
 	ERR_INVITEONLYCHAN = 473,
 	ERR_CHANNELISFULL = 471,
 	ERR_BADCHANNELKEY = 475,
+	ERR_NOTREGISTERED = 451,
 	ERR_NORECIPIENT = 411,
 	ERR_NOTEXTTOSEND = 412,
 	RPL_NOTOPIC = 331,
@@ -27,21 +28,6 @@ typedef enum e_numeric
 } t_numeric;
 class Client
 {
-private:
-	int _fd;
-	std::string _ipAddress;
-	std::string _buffer;
-
-	std::string _nickname;
-	std::string _username;
-	std::string _realname;
-
-	bool _isRegistered;
-	bool _isAuthenticated;
-
-	// Constructors and Destructors
-	Client();
-
 public:
 	// Constructors and Destructors
 	Client(const int fd, const std::string &ipadd);
@@ -52,6 +38,7 @@ public:
 	int getFd() const;
 	std::string getIpAddress() const;
 	std::string getNickname() const;
+	std::string getUsername() const;
 
 	void setFd(const int fd);
 	void setIpAddress(const std::string &ipadd);
@@ -62,6 +49,7 @@ public:
 	void sendToClient(const std::string &str);
 	void sendNumeric(const t_numeric numeric, const std::string &message);
 	void handleBuffer();
+	void handleCommand(const Command &command);
 	bool isValidNickname(const std::string &nick);
 
 	// Commands
@@ -74,5 +62,24 @@ public:
 	void cmdPart(const Command &cmd);
 
 	// Operator Overloads
-	const Client &operator=(const Client &copy);
+	Client &operator=(const Client &copy);
+
+private:
+	// Default Constructor
+	Client();
+
+private:
+	// Connection
+	int _fd;
+	std::string _ipAddress;
+	std::string _buffer;
+
+	// Identity
+	std::string _nickname;
+	std::string _username;
+	std::string _realname;
+
+	// State
+	bool _isRegistered;
+	bool _isAuthenticated;
 };

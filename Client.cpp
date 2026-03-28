@@ -24,15 +24,63 @@ std::vector<std::string> splitByComma(const std::string &value)
 std::string buildPrefix(const Client &client)
 {
 	std::string nick = client.getNickname().empty() ? "*" : client.getNickname();
-	return nick + "!*@" + client.getIpAddress();
+	std::string user = client.getUsername().empty() ? "*" : client.getUsername();
+	return nick + "!" + user + "@" + client.getIpAddress();
+}
+
+typedef std::pair<std::string, void (Client::*)(const Command &)> CommandEntry;
+
+static std::vector<CommandEntry> makePublicCmds()
+{
+	std::vector<CommandEntry> v;
+	v.push_back(CommandEntry("CAP", &Client::cmdCAP));
+	v.push_back(CommandEntry("PASS", &Client::cmdPass));
+	v.push_back(CommandEntry("NICK", &Client::cmdNick));
+	v.push_back(CommandEntry("USER", &Client::cmdUser));
+	return v;
+}
+
+static std::vector<CommandEntry> makePrivateCmds()
+{
+	std::vector<CommandEntry> v;
+	v.push_back(CommandEntry("PRIVMSG", &Client::cmdPrivmsg));
+	v.push_back(CommandEntry("JOIN", &Client::cmdJoin));
+	v.push_back(CommandEntry("PART", &Client::cmdPart));
+	return v;
+}
+
+static const std::vector<CommandEntry> PublicCommands = makePublicCmds();
+static const std::vector<CommandEntry> PrivateCommands = makePrivateCmds();
+
+void Client::handleCommand(const Command &command)
+{
+	for (size_t i = 0; i < PublicCommands.size(); ++i)
+	{
+		if (PublicCommands[i].first == command.name)
+		{
+			(this->*PublicCommands[i].second)(command);
+			return;
+		}
+	}
+	if (!_isRegistered)
+	{
+		sendNumeric(ERR_NOTREGISTERED, ":You have not registered");
+		return;
+	}
+	for (size_t i = 0; i < PrivateCommands.size(); ++i)
+	{
+		if (PrivateCommands[i].first == command.name)
+		{
+			(this->*PrivateCommands[i].second)(command);
+			return;
+		}
+	}
 }
 
 bool Client::isValidNickname(const std::string &nick)
 {
 	if (nick.empty() || nick.length() > 9)
-	{
 		return false;
-	}
 
 	for (size_t i = 0; i < nick.length(); ++i)
 	{
@@ -40,19 +88,11 @@ bool Client::isValidNickname(const std::string &nick)
 		if (i == 0)
 		{
 			if (!std::isalpha(c) && c != '_')
-			{
 				return false;
-			}
 		}
-		else
-		{
-			if (!std::isalnum(c) && c != '_' && c != '-')
-			{
+		else if (!std::isalnum(c) && c != '_' && c != '-')
 				return false;
-			}
-		}
 	}
-
 	return true;
 }
 
@@ -110,25 +150,15 @@ void Client::sendNumeric(const t_numeric numeric, const std::string &message)
 void Client::handleBuffer()
 {
 	size_t pos;
-	while ((pos = _buffer.find("\n")) != std::string::npos)
+	while ((pos = _buffer.find('\n')) != std::string::npos)
 	{
 		std::string line = _buffer.substr(0, pos);
 		_buffer.erase(0, pos + 1);
+		if (!line.empty() && line[line.size() - 1] == '\r')
+			line.erase(line.size() - 1);
 		Command command = parseMessage(line);
-		if (command.name == "CAP")
-			cmdCAP(command);
-		else if (command.name == "NICK")
-			cmdNick(command);
-		else if (command.name == "PASS")
-			cmdPass(command);
-		else if (command.name == "USER")
-			cmdUser(command);
-		else if (command.name == "PRIVMSG")
-			cmdPrivmsg(command);
-		else if (command.name == "JOIN")
-			cmdJoin(command);
-		else if (command.name == "PART")
-			cmdPart(command);
+
+		handleCommand(command);
 	}
 }
 
@@ -359,7 +389,7 @@ void Client::cmdPart(const Command &cmd)
 	}
 }
 
-const Client &Client::operator=(const Client &copy)
+Client &Client::operator=(const Client &copy)
 {
 	if (this == &copy)
 		return *this;
@@ -384,4 +414,9 @@ std::string Client::getIpAddress() const
 std::string Client::getNickname() const
 {
 	return _nickname;
+}
+
+std::string Client::getUsername() const
+{
+	return _username;
 }

@@ -5,6 +5,9 @@ extras
 *.log
 *.o
 *.d
+.gitignore
+CLAUDE.md
+piolows
 
 # Binaries
 ft_irc
