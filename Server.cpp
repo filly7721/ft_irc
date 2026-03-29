@@ -257,6 +257,14 @@ void Server::AcceptNewClient()
 	std::cout << "Accepted Client with address: " << newClient->getIpAddress() << std::endl;
 }
 
+static std::string toLower(const std::string &str)
+{
+	std::string result = str;
+	for (size_t i = 0; i < result.size(); ++i)
+		result[i] = std::tolower(result[i]);
+	return result;
+}
+
 void Server::sendToClient(int fd, const std::string &message)
 {
 	Client *client = getClientByFd(fd);
@@ -266,7 +274,7 @@ void Server::sendToClient(int fd, const std::string &message)
 
 Channel *Server::getChannel(const std::string &name)
 {
-	std::map<std::string, Channel>::iterator it = _channels.find(name);
+	std::map<std::string, Channel>::iterator it = _channels.find(toLower(name));
 	if (it == _channels.end())
 		return NULL;
 	return &(it->second);
@@ -274,7 +282,7 @@ Channel *Server::getChannel(const std::string &name)
 
 const Channel *Server::getChannel(const std::string &name) const
 {
-	std::map<std::string, Channel>::const_iterator it = _channels.find(name);
+	std::map<std::string, Channel>::const_iterator it = _channels.find(toLower(name));
 	if (it == _channels.end())
 		return NULL;
 	return &(it->second);
@@ -282,7 +290,8 @@ const Channel *Server::getChannel(const std::string &name) const
 
 Channel &Server::createChannel(const std::string &name, int creatorFd)
 {
-	std::pair<std::map<std::string, Channel>::iterator, bool> result = _channels.insert(std::make_pair(name, Channel(name)));
+	std::string lower = toLower(name);
+	std::pair<std::map<std::string, Channel>::iterator, bool> result = _channels.insert(std::make_pair(lower, Channel(lower)));
 	result.first->second.addMember(creatorFd);
 	result.first->second.addOperator(creatorFd);
 	return result.first->second;
@@ -290,7 +299,7 @@ Channel &Server::createChannel(const std::string &name, int creatorFd)
 
 void Server::broadcastToChannel(const std::string &name, const std::string &message, int exceptFd)
 {
-	Channel *channel = getChannel(name);
+	Channel *channel = getChannel(toLower(name));
 	if (!channel)
 		return;
 	const std::set<int> &members = channel->getMembers();
@@ -304,7 +313,7 @@ void Server::broadcastToChannel(const std::string &name, const std::string &mess
 
 void Server::removeChannelIfEmpty(const std::string &name)
 {
-	std::map<std::string, Channel>::iterator it = _channels.find(name);
+	std::map<std::string, Channel>::iterator it = _channels.find(toLower(name));
 	if (it != _channels.end() && it->second.memberCount() == 0)
 		_channels.erase(it);
 }
