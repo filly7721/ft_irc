@@ -45,21 +45,19 @@ void Server::Start()
 						ReceiveNewData(_poll_fds[i].fd);
 				}
 				if (_poll_fds[i].revents & (POLLHUP | POLLNVAL | POLLERR))
-				{
 					_fdsToRemove.push_back(_poll_fds[i].fd);
-				}
 			}
-			for (size_t i = 0; i < _fdsToRemove.size(); i++)
-			{
-				removeClient(_fdsToRemove[i]);
-				std::cout << "Client <" << _fdsToRemove[i] << "> Disconnected" << std::endl;
-			}
-			_fdsToRemove.clear();
 			for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it)
 			{
 				if (it->second)
 					it->second->handleBuffer();
 			}
+			for (size_t i = 0; i < _fdsToRemove.size(); i++)
+			{
+				std::cout << "Client <" << _fdsToRemove[i] << "> Disconnected" << std::endl;
+				removeClient(_fdsToRemove[i]);
+			}
+			_fdsToRemove.clear();
 		}
 		catch (const ClientError &e)
 		{
@@ -163,6 +161,11 @@ void Server::ReceiveNewData(int fd)
 			client->addToBuffer(std::string(buff));
 		}
 	}
+}
+
+void Server::queueRemoveClient(int fd)
+{
+	_fdsToRemove.push_back(fd);
 }
 
 void Server::removeClient(int fd)

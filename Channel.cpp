@@ -1,7 +1,7 @@
 #include "Channel.hpp"
 
 Channel::Channel(const std::string &name)
-	: _name(name), _inviteOnly(false), _userLimit(0)
+	: _name(name), _inviteOnly(false), _topicRestricted(false), _userLimit(0)
 {
 }
 
@@ -25,6 +25,7 @@ const Channel &Channel::operator=(const Channel &copy)
 	_operators = copy._operators;
 	_invited = copy._invited;
 	_inviteOnly = copy._inviteOnly;
+	_topicRestricted = copy._topicRestricted;
 	_userLimit = copy._userLimit;
 	return *this;
 }
@@ -102,6 +103,16 @@ void Channel::setUserLimit(size_t userLimit)
 void Channel::setInviteOnly(bool inviteOnly)
 {
 	_inviteOnly = inviteOnly;
+}
+
+bool Channel::isTopicRestricted() const
+{
+	return _topicRestricted;
+}
+
+void Channel::setTopicRestricted(bool value)
+{
+	_topicRestricted = value;
 }
 
 void Channel::addMember(int fd)

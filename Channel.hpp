@@ -17,6 +17,7 @@ public:
 	const std::string &getKey() const;
 	size_t getUserLimit() const;
 	bool isInviteOnly() const;
+	bool isTopicRestricted() const;
 	bool isFull() const;
 	bool hasMember(int fd) const;
 	bool isOperator(int fd) const;
@@ -28,6 +29,7 @@ public:
 	void setKey(const std::string &key);
 	void setUserLimit(size_t userLimit);
 	void setInviteOnly(bool inviteOnly);
+	void setTopicRestricted(bool value);
 
 	// Functionality
 	void addMember(int fd);
@@ -57,5 +59,6 @@ private:
 
 	// Settings
 	bool _inviteOnly;
+	bool _topicRestricted;
 	size_t _userLimit;
 };

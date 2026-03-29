@@ -43,6 +43,7 @@ public:
 	void broadcastToChannel(const std::string &name, const std::string &message, int exceptFd);
 	void removeClientFromAllChannels(int fd, const std::string &reason);
 	void removeChannelIfEmpty(const std::string &name);
+	void queueRemoveClient(int fd);
 
 	// operator overloads
 	const Server &operator=(const Server &copy);

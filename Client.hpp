@@ -18,9 +18,16 @@ typedef enum e_numeric
 	ERR_INVITEONLYCHAN = 473,
 	ERR_CHANNELISFULL = 471,
 	ERR_BADCHANNELKEY = 475,
+	ERR_NOSUCHNICK = 401,
 	ERR_NOTREGISTERED = 451,
 	ERR_NORECIPIENT = 411,
 	ERR_NOTEXTTOSEND = 412,
+	ERR_USERNOTINCHANNEL = 441,
+	ERR_USERONCHANNEL = 443,
+	ERR_CHANOPRIVSNEEDED = 482,
+	ERR_UNKNOWNMODE = 472,
+	RPL_CHANNELMODEIS = 324,
+	RPL_INVITING = 341,
 	RPL_NOTOPIC = 331,
 	RPL_TOPIC = 332,
 	RPL_NAMREPLY = 353,
@@ -57,9 +64,14 @@ public:
 	void cmdNick(const Command &cmd);
 	void cmdPass(const Command &cmd);
 	void cmdUser(const Command &cmd);
+	void cmdQuit(const Command &cmd);
 	void cmdPrivmsg(const Command &cmd);
 	void cmdJoin(const Command &cmd);
 	void cmdPart(const Command &cmd);
+	void cmdKick(const Command &cmd);
+	void cmdInvite(const Command &cmd);
+	void cmdTopic(const Command &cmd);
+	void cmdMode(const Command &cmd);
 
 	// Operator Overloads
 	Client &operator=(const Client &copy);

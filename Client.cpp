@@ -33,10 +33,11 @@ typedef std::pair<std::string, void (Client::*)(const Command &)> CommandEntry;
 static std::vector<CommandEntry> makePublicCmds()
 {
 	std::vector<CommandEntry> v;
-	v.push_back(CommandEntry("CAP", &Client::cmdCAP));
+	v.push_back(CommandEntry("CAP",  &Client::cmdCAP));
 	v.push_back(CommandEntry("PASS", &Client::cmdPass));
 	v.push_back(CommandEntry("NICK", &Client::cmdNick));
 	v.push_back(CommandEntry("USER", &Client::cmdUser));
+	v.push_back(CommandEntry("QUIT", &Client::cmdQuit));
 	return v;
 }
 
@@ -44,8 +45,12 @@ static std::vector<CommandEntry> makePrivateCmds()
 {
 	std::vector<CommandEntry> v;
 	v.push_back(CommandEntry("PRIVMSG", &Client::cmdPrivmsg));
-	v.push_back(CommandEntry("JOIN", &Client::cmdJoin));
-	v.push_back(CommandEntry("PART", &Client::cmdPart));
+	v.push_back(CommandEntry("JOIN",    &Client::cmdJoin));
+	v.push_back(CommandEntry("PART",    &Client::cmdPart));
+	v.push_back(CommandEntry("KICK",    &Client::cmdKick));
+	v.push_back(CommandEntry("INVITE",  &Client::cmdInvite));
+	v.push_back(CommandEntry("TOPIC",   &Client::cmdTopic));
+	v.push_back(CommandEntry("MODE",    &Client::cmdMode));
 	return v;
 }
 
@@ -419,4 +424,240 @@ std::string Client::getNickname() const
 std::string Client::getUsername() const
 {
 	return _username;
+}
+
+void Client::cmdQuit(const Command &cmd)
+{
+	std::string reason = cmd.params.empty() ? "Client quit" : cmd.params[0];
+	g_server->removeClientFromAllChannels(_fd, reason);
+	g_server->queueRemoveClient(_fd);
+}
+
+void Client::cmdKick(const Command &cmd)
+{
+	if (cmd.params.size() < 2)
+	{
+		sendNumeric(ERR_NEEDMOREPARAMS, "KICK :Not enough parameters");
+		return;
+	}
+	const std::string &channelName = cmd.params[0];
+	const std::string &targetNick = cmd.params[1];
+	const std::string reason = (cmd.params.size() > 2) ? cmd.params[2] : targetNick;
+
+	Channel *channel = g_server->getChannel(channelName);
+	if (!channel)
+	{
+		sendNumeric(ERR_NOSUCHCHANNEL, channelName + " :No such channel");
+		return;
+	}
+	if (!channel->hasMember(_fd))
+	{
+		sendNumeric(ERR_NOTONCHANNEL, channelName + " :You're not on that channel");
+		return;
+	}
+	if (!channel->isOperator(_fd))
+	{
+		sendNumeric(ERR_CHANOPRIVSNEEDED, channelName + " :You're not channel operator");
+		return;
+	}
+	const Client *target = g_server->getClientByNick(targetNick);
+	if (!target || !channel->hasMember(target->getFd()))
+	{
+		sendNumeric(ERR_USERNOTINCHANNEL, targetNick + " " + channelName + " :They aren't on that channel");
+		return;
+	}
+	std::string kickMsg = ":" + buildPrefix(*this) + " KICK " + channelName + " " + targetNick + " :" + reason;
+	g_server->broadcastToChannel(channelName, kickMsg, -1);
+	channel->removeMember(target->getFd());
+	g_server->removeChannelIfEmpty(channelName);
+}
+
+void Client::cmdInvite(const Command &cmd)
+{
+	if (cmd.params.size() < 2)
+	{
+		sendNumeric(ERR_NEEDMOREPARAMS, "INVITE :Not enough parameters");
+		return;
+	}
+	const std::string &targetNick = cmd.params[0];
+	const std::string &channelName = cmd.params[1];
+
+	Channel *channel = g_server->getChannel(channelName);
+	if (!channel)
+	{
+		sendNumeric(ERR_NOSUCHCHANNEL, channelName + " :No such channel");
+		return;
+	}
+	if (!channel->hasMember(_fd))
+	{
+		sendNumeric(ERR_NOTONCHANNEL, channelName + " :You're not on that channel");
+		return;
+	}
+	if (!channel->isOperator(_fd))
+	{
+		sendNumeric(ERR_CHANOPRIVSNEEDED, channelName + " :You're not channel operator");
+		return;
+	}
+	const Client *target = g_server->getClientByNick(targetNick);
+	if (!target)
+	{
+		sendNumeric(ERR_NOSUCHNICK, targetNick + " :No such nick");
+		return;
+	}
+	if (channel->hasMember(target->getFd()))
+	{
+		sendNumeric(ERR_USERONCHANNEL, targetNick + " " + channelName + " :is already on channel");
+		return;
+	}
+	channel->addInvite(target->getFd());
+	sendNumeric(RPL_INVITING, channelName + " " + targetNick);
+	g_server->sendToClient(target->getFd(), ":" + buildPrefix(*this) + " INVITE " + targetNick + " :" + channelName);
+}
+
+void Client::cmdTopic(const Command &cmd)
+{
+	if (cmd.params.empty())
+	{
+		sendNumeric(ERR_NEEDMOREPARAMS, "TOPIC :Not enough parameters");
+		return;
+	}
+	const std::string &channelName = cmd.params[0];
+	Channel *channel = g_server->getChannel(channelName);
+	if (!channel)
+	{
+		sendNumeric(ERR_NOSUCHCHANNEL, channelName + " :No such channel");
+		return;
+	}
+	if (!channel->hasMember(_fd))
+	{
+		sendNumeric(ERR_NOTONCHANNEL, channelName + " :You're not on that channel");
+		return;
+	}
+	if (cmd.params.size() < 2)
+	{
+		if (channel->getTopic().empty())
+			sendNumeric(RPL_NOTOPIC, channelName + " :No topic is set");
+		else
+			sendNumeric(RPL_TOPIC, channelName + " :" + channel->getTopic());
+		return;
+	}
+	if (channel->isTopicRestricted() && !channel->isOperator(_fd))
+	{
+		sendNumeric(ERR_CHANOPRIVSNEEDED, channelName + " :You're not channel operator");
+		return;
+	}
+	channel->setTopic(cmd.params[1]);
+	g_server->broadcastToChannel(channelName, ":" + buildPrefix(*this) + " TOPIC " + channelName + " :" + cmd.params[1], -1);
+}
+
+void Client::cmdMode(const Command &cmd)
+{
+	if (cmd.params.empty())
+	{
+		sendNumeric(ERR_NEEDMOREPARAMS, "MODE :Not enough parameters");
+		return;
+	}
+	const std::string &channelName = cmd.params[0];
+	if (channelName.empty() || channelName[0] != '#')
+		return;
+	Channel *channel = g_server->getChannel(channelName);
+	if (!channel)
+	{
+		sendNumeric(ERR_NOSUCHCHANNEL, channelName + " :No such channel");
+		return;
+	}
+	if (cmd.params.size() < 2)
+	{
+		std::string modes = "+";
+		if (channel->isInviteOnly())     modes += "i";
+		if (channel->isTopicRestricted()) modes += "t";
+		if (!channel->getKey().empty())  modes += "k";
+		if (channel->getUserLimit() > 0) modes += "l";
+		sendNumeric(RPL_CHANNELMODEIS, channelName + " " + modes);
+		return;
+	}
+	if (!channel->isOperator(_fd))
+	{
+		sendNumeric(ERR_CHANOPRIVSNEEDED, channelName + " :You're not channel operator");
+		return;
+	}
+	const std::string &modeStr = cmd.params[1];
+	bool adding = true;
+	size_t paramIdx = 2;
+	std::string appliedModes;
+	std::string appliedParams;
+	char currentSign = '+';
+
+	for (size_t i = 0; i < modeStr.size(); ++i)
+	{
+		char c = modeStr[i];
+		if (c == '+') { adding = true; currentSign = '+'; continue; }
+		if (c == '-') { adding = false; currentSign = '-'; continue; }
+
+		if (c == 'i')
+		{
+			channel->setInviteOnly(adding);
+			appliedModes += currentSign;
+			appliedModes += c;
+		}
+		else if (c == 't')
+		{
+			channel->setTopicRestricted(adding);
+			appliedModes += currentSign;
+			appliedModes += c;
+		}
+		else if (c == 'k')
+		{
+			if (adding)
+			{
+				if (paramIdx >= cmd.params.size()) continue;
+				const std::string &key = cmd.params[paramIdx++];
+				channel->setKey(key);
+				appliedParams += " " + key;
+			}
+			else
+				channel->setKey("");
+			appliedModes += currentSign;
+			appliedModes += c;
+		}
+		else if (c == 'o')
+		{
+			if (paramIdx >= cmd.params.size()) continue;
+			const Client *target = g_server->getClientByNick(cmd.params[paramIdx++]);
+			if (!target || !channel->hasMember(target->getFd())) continue;
+			if (adding)
+				channel->addOperator(target->getFd());
+			else
+				channel->removeOperator(target->getFd());
+			appliedModes += currentSign;
+			appliedModes += c;
+			appliedParams += " " + target->getNickname();
+		}
+		else if (c == 'l')
+		{
+			if (adding)
+			{
+				if (paramIdx >= cmd.params.size()) continue;
+				std::istringstream ss(cmd.params[paramIdx++]);
+				size_t limit = 0;
+				ss >> limit;
+				if (limit == 0) continue;
+				channel->setUserLimit(limit);
+				std::ostringstream out;
+				out << limit;
+				appliedParams += " " + out.str();
+			}
+			else
+				channel->setUserLimit(0);
+			appliedModes += currentSign;
+			appliedModes += c;
+		}
+		else
+			sendNumeric(ERR_UNKNOWNMODE, std::string(1, c) + " :is unknown mode char to me");
+	}
+	if (!appliedModes.empty())
+	{
+		g_server->broadcastToChannel(channelName,
+			":" + buildPrefix(*this) + " MODE " + channelName + " " + appliedModes + appliedParams, -1);
+	}
 }
