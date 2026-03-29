@@ -57,6 +57,7 @@ public:
 	void sendNumeric(const t_numeric numeric, const std::string &message);
 	void handleBuffer();
 	void handleCommand(const Command &command);
+	void tryRegister();
 	bool isValidNickname(const std::string &nick);
 
 	// Commands

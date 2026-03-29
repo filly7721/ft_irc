@@ -148,7 +148,8 @@ void Client::sendToClient(const std::string &str)
 void Client::sendNumeric(const t_numeric numeric, const std::string &message)
 {
 	std::ostringstream oss;
-	oss << ':' << g_server->getName() << ' ' << numeric << ' ' << _nickname << ' ' << message;
+	oss << ':' << g_server->getName() << ' ' << numeric << ' '
+	    << (_nickname.empty() ? "*" : _nickname) << ' ' << message;
 	sendToClient(oss.str());
 }
 
@@ -193,16 +194,14 @@ void Client::cmdNick(const Command &cmd)
 	const Client *existing = g_server->getClientByNick(cmd.params[0]);
 	if (existing && existing->getFd() != _fd)
 	{
-		sendNumeric(ERR_NICKNAMEINUSE, "Nickname is already in use");
+		sendNumeric(ERR_NICKNAMEINUSE, cmd.params[0] + " :Nickname is already in use");
 		return;
 	}
 	std::string oldNick = _nickname;
 	_nickname = cmd.params[0];
 	if (!oldNick.empty())
-	{
-		std::string message = ":" + oldNick + " NICK :" + _nickname;
-		sendToClient(message);
-	}
+		sendToClient(":" + oldNick + " NICK :" + _nickname);
+	tryRegister();
 }
 
 void Client::cmdPass(const Command &cmd)
@@ -239,19 +238,23 @@ void Client::cmdUser(const Command &cmd)
 	}
 	_username = cmd.params[0];
 	_realname = cmd.params[3];
-	if (_isAuthenticated && !_nickname.empty() && !_username.empty() && !_realname.empty())
-	{
-		_isRegistered = true;
-		sendNumeric((t_numeric)001, "Welcome to the Internet Relay Network " + _nickname + "!" + _username + "@" + _ipAddress);
-		sendNumeric((t_numeric)002, "Your host is " + g_server->getName() + ", running version 1.0");
-		sendNumeric((t_numeric)003, "This server was created today");
-		sendNumeric((t_numeric)004, g_server->getName() + " 1.0 o itkol");
-		sendNumeric((t_numeric)005, "CHANTYPES=# PREFIX=(o)@ CHANLIMIT=#:10 CHANNELLEN=50 NICKLEN=9 NETWORK=" + g_server->getName() + " :are supported by this server");
-		sendNumeric((t_numeric)375, ":- ircserv Message of the day -");
-		sendNumeric((t_numeric)372, ":- Welcome to the IRC server!");
-		sendNumeric((t_numeric)372, ":- This server is ready for use.");
-		sendNumeric((t_numeric)376, ":End of /MOTD command");
-	}
+	tryRegister();
+}
+
+void Client::tryRegister()
+{
+	if (_isRegistered || !_isAuthenticated || _nickname.empty() || _username.empty() || _realname.empty())
+		return;
+	_isRegistered = true;
+	sendNumeric((t_numeric)001, ":Welcome to the Internet Relay Network " + _nickname + "!" + _username + "@" + _ipAddress);
+	sendNumeric((t_numeric)002, ":Your host is " + g_server->getName() + ", running version 1.0");
+	sendNumeric((t_numeric)003, ":This server was created today");
+	sendNumeric((t_numeric)004, g_server->getName() + " 1.0 o itkol");
+	sendNumeric((t_numeric)005, "CHANTYPES=# PREFIX=(o)@ CHANLIMIT=#:10 CHANNELLEN=50 NICKLEN=9 NETWORK=" + g_server->getName() + " :are supported by this server");
+	sendNumeric((t_numeric)375, ":- ircserv Message of the day -");
+	sendNumeric((t_numeric)372, ":- Welcome to the IRC server!");
+	sendNumeric((t_numeric)372, ":- This server is ready for use.");
+	sendNumeric((t_numeric)376, ":End of /MOTD command");
 }
 
 void Client::cmdPrivmsg(const Command &cmd)
