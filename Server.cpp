@@ -32,9 +32,14 @@ void Server::Start()
 		{
 			int poll_count = 0;
 			if (!_poll_fds.empty())
-				poll_count = poll(&_poll_fds[0], _poll_fds.size(), -1);
+				poll_count = poll(&_poll_fds[0], _poll_fds.size(), 30000);
 			if (poll_count < 0 && !_stopRunning)
 				throw std::runtime_error("Poll failed");
+			if (poll_count == 0)
+			{
+				pingClients();
+				continue;
+			}
 			for (size_t i = 0; i < _poll_fds.size(); i++)
 			{
 				if ((_poll_fds[i].revents & POLLIN))
@@ -337,6 +342,26 @@ void Server::removeClientFromAllChannels(int fd, const std::string &reason)
 	}
 	for (size_t i = 0; i < channelsToErase.size(); ++i)
 		_channels.erase(channelsToErase[i]);
+}
+
+void Server::pingClients()
+{
+	for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); ++it)
+	{
+		Client *client = it->second;
+		if (!client)
+			continue;
+		if (client->hasPendingPing())
+			_fdsToRemove.push_back(it->first);
+		else
+			client->sendPing();
+	}
+	for (size_t i = 0; i < _fdsToRemove.size(); i++)
+	{
+		std::cout << "Client <" << _fdsToRemove[i] << "> timed out" << std::endl;
+		removeClient(_fdsToRemove[i]);
+	}
+	_fdsToRemove.clear();
 }
 
 Server::~Server()

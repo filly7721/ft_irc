@@ -58,6 +58,9 @@ public:
 	void handleBuffer();
 	void handleCommand(const Command &command);
 	void tryRegister();
+	void sendPing();
+	void resetPing();
+	bool hasPendingPing() const;
 	bool isValidNickname(const std::string &nick);
 
 	// Commands
@@ -65,6 +68,7 @@ public:
 	void cmdNick(const Command &cmd);
 	void cmdPass(const Command &cmd);
 	void cmdUser(const Command &cmd);
+	void cmdPong(const Command &cmd);
 	void cmdQuit(const Command &cmd);
 	void cmdPrivmsg(const Command &cmd);
 	void cmdJoin(const Command &cmd);
@@ -95,4 +99,5 @@ private:
 	// State
 	bool _isRegistered;
 	bool _isAuthenticated;
+	bool _pendingPing;
 };

@@ -37,6 +37,7 @@ static std::vector<CommandEntry> makePublicCmds()
 	v.push_back(CommandEntry("PASS", &Client::cmdPass));
 	v.push_back(CommandEntry("NICK", &Client::cmdNick));
 	v.push_back(CommandEntry("USER", &Client::cmdUser));
+	v.push_back(CommandEntry("PONG", &Client::cmdPong));
 	v.push_back(CommandEntry("QUIT", &Client::cmdQuit));
 	return v;
 }
@@ -101,7 +102,7 @@ bool Client::isValidNickname(const std::string &nick)
 	return true;
 }
 
-Client::Client(const int fd, const std::string &ipadd) : _fd(fd), _ipAddress(ipadd), _isRegistered(false), _isAuthenticated(false)
+Client::Client(const int fd, const std::string &ipadd) : _fd(fd), _ipAddress(ipadd), _isRegistered(false), _isAuthenticated(false), _pendingPing(false)
 {
 }
 
@@ -137,6 +138,7 @@ void Client::setNickname(const std::string &nickname)
 void Client::addToBuffer(const std::string &str)
 {
 	_buffer += str;
+	_pendingPing = false;
 }
 
 void Client::sendToClient(const std::string &str)
@@ -410,6 +412,7 @@ Client &Client::operator=(const Client &copy)
 	_realname = copy._realname;
 	_isRegistered = copy._isRegistered;
 	_isAuthenticated = copy._isAuthenticated;
+	_pendingPing = copy._pendingPing;
 
 	return *this;
 }
@@ -427,6 +430,27 @@ std::string Client::getNickname() const
 std::string Client::getUsername() const
 {
 	return _username;
+}
+
+void Client::sendPing()
+{
+	sendToClient("PING :" + g_server->getName());
+	_pendingPing = true;
+}
+
+void Client::resetPing()
+{
+	_pendingPing = false;
+}
+
+bool Client::hasPendingPing() const
+{
+	return _pendingPing;
+}
+
+void Client::cmdPong(const Command &)
+{
+	_pendingPing = false;
 }
 
 void Client::cmdQuit(const Command &cmd)

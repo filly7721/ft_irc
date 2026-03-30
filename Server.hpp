@@ -83,6 +83,7 @@ private:
 	void ReceiveNewData(int fd);
 	void removeClient(int fd);
 	void removeAllClients();
+	void pingClients();
 
 private:
 	// Network Values
