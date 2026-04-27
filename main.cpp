@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <cctype>
 #include <cstring>
 #include <iostream>
 #include <cstdlib>
@@ -11,33 +12,54 @@ Command parseMessage(const std::string &message)
 {
 	Command command;
 	std::string line = message;
+
 	if (!line.empty() && line[line.size() - 1] == '\r')
 		line.erase(line.size() - 1);
 	if (line.empty())
 		return command;
 
-	std::stringstream ss(line);
-	std::string token;
-	if (!(ss >> command.name))
-		return command;
+	size_t pos = 0;
 
-	while (ss >> token)
+	// Optional prefix: ":prefix "
+	if (line[0] == ':')
 	{
-		if (!token.empty() && token[0] == ':')
+		size_t end = line.find(' ');
+		if (end == std::string::npos)
+			return command;
+		command.prefix = line.substr(1, end - 1);
+		pos = line.find_first_not_of(' ', end);
+		if (pos == std::string::npos)
+			return command;
+	}
+
+	// Command name — folded to uppercase (IRC is case-insensitive for commands)
+	size_t end = line.find(' ', pos);
+	std::string name = (end == std::string::npos) ? line.substr(pos) : line.substr(pos, end - pos);
+	for (size_t i = 0; i < name.size(); ++i)
+		name[i] = std::toupper(static_cast<unsigned char>(name[i]));
+	command.name = name;
+	if (end == std::string::npos)
+		return command;
+	pos = line.find_first_not_of(' ', end);
+
+	// Parameters: middle params, then optional ":trailing" (may contain spaces)
+	while (pos != std::string::npos && pos < line.size())
+	{
+		if (line[pos] == ':')
 		{
-			token.erase(0, 1);
-			std::string trailing;
-			std::getline(ss, trailing);
-			if (!trailing.empty() && trailing[0] == ' ')
-				trailing.erase(0, 1);
-			if (!trailing.empty())
-				token += " " + trailing;
-			command.params.push_back(token);
+			command.params.push_back(line.substr(pos + 1));
 			break;
 		}
-		else
-			command.params.push_back(token);
+		end = line.find(' ', pos);
+		if (end == std::string::npos)
+		{
+			command.params.push_back(line.substr(pos));
+			break;
+		}
+		command.params.push_back(line.substr(pos, end - pos));
+		pos = line.find_first_not_of(' ', end);
 	}
+
 	return command;
 }
 
@@ -64,7 +86,6 @@ int main(int ac, char **av)
 
 	int port = std::atoi(av[1]);
 	std::string password = av[2];
-	(void)password;
 
 	g_server = new Server(port, password);
 	try

@@ -93,10 +93,10 @@ bool Client::isValidNickname(const std::string &nick)
 		char c = nick[i];
 		if (i == 0)
 		{
-			if (!std::isalpha(c) && c != '_')
+			if (!std::isalpha(static_cast<unsigned char>(c)) && c != '_')
 				return false;
 		}
-		else if (!std::isalnum(c) && c != '_' && c != '-')
+		else if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-')
 				return false;
 	}
 	return true;
@@ -297,7 +297,7 @@ void Client::cmdPrivmsg(const Command &cmd)
 	const Client *recipient = g_server->getClientByNick(target);
 	if (!recipient)
 	{
-		sendNumeric(ERR_NORECIPIENT, "PRIVMSG :No recipient given");
+		sendNumeric(ERR_NOSUCHNICK, target + " :No such nick/channel");
 		return;
 	}
 	g_server->sendToClient(recipient->getFd(), ":" + buildPrefix(*this) + " PRIVMSG " + target + " :" + message);
@@ -322,17 +322,17 @@ void Client::cmdJoin(const Command &cmd)
 			sendNumeric(ERR_NOSUCHCHANNEL, channelName + " :No such channel");
 			continue;
 		}
-		const std::string key = (index < keys.size()) ? keys[index] : "";
 		Channel *channel = g_server->getChannel(channelName);
 		if (!channel)
 			channel = &g_server->createChannel(channelName, _fd);
-		if (channel->hasMember(_fd))
+		else if (channel->hasMember(_fd))
 			continue;
 		if (channel->isInviteOnly() && !channel->isInvited(_fd))
 		{
 			sendNumeric(ERR_INVITEONLYCHAN, channelName + " :Cannot join channel (+i)");
 			continue;
 		}
+		const std::string key = (index < keys.size()) ? keys[index] : "";
 		if (!channel->getKey().empty() && channel->getKey() != key)
 		{
 			sendNumeric(ERR_BADCHANNELKEY, channelName + " :Cannot join channel (+k)");
@@ -596,11 +596,18 @@ void Client::cmdMode(const Command &cmd)
 	if (cmd.params.size() < 2)
 	{
 		std::string modes = "+";
-		if (channel->isInviteOnly())     modes += "i";
+		std::string modeParams;
+		if (channel->isInviteOnly())      modes += "i";
 		if (channel->isTopicRestricted()) modes += "t";
-		if (!channel->getKey().empty())  modes += "k";
-		if (channel->getUserLimit() > 0) modes += "l";
-		sendNumeric(RPL_CHANNELMODEIS, channelName + " " + modes);
+		if (!channel->getKey().empty())  { modes += "k"; modeParams += " " + channel->getKey(); }
+		if (channel->getUserLimit() > 0)
+		{
+			modes += "l";
+			std::ostringstream oss;
+			oss << channel->getUserLimit();
+			modeParams += " " + oss.str();
+		}
+		sendNumeric(RPL_CHANNELMODEIS, channelName + " " + modes + modeParams);
 		return;
 	}
 	if (!channel->isOperator(_fd))
@@ -614,6 +621,7 @@ void Client::cmdMode(const Command &cmd)
 	std::string appliedModes;
 	std::string appliedParams;
 	char currentSign = '+';
+	char lastEmittedSign = 0;
 
 	for (size_t i = 0; i < modeStr.size(); ++i)
 	{
@@ -621,17 +629,16 @@ void Client::cmdMode(const Command &cmd)
 		if (c == '+') { adding = true; currentSign = '+'; continue; }
 		if (c == '-') { adding = false; currentSign = '-'; continue; }
 
+		bool applied = false;
 		if (c == 'i')
 		{
 			channel->setInviteOnly(adding);
-			appliedModes += currentSign;
-			appliedModes += c;
+			applied = true;
 		}
 		else if (c == 't')
 		{
 			channel->setTopicRestricted(adding);
-			appliedModes += currentSign;
-			appliedModes += c;
+			applied = true;
 		}
 		else if (c == 'k')
 		{
@@ -644,8 +651,7 @@ void Client::cmdMode(const Command &cmd)
 			}
 			else
 				channel->setKey("");
-			appliedModes += currentSign;
-			appliedModes += c;
+			applied = true;
 		}
 		else if (c == 'o')
 		{
@@ -656,9 +662,8 @@ void Client::cmdMode(const Command &cmd)
 				channel->addOperator(target->getFd());
 			else
 				channel->removeOperator(target->getFd());
-			appliedModes += currentSign;
-			appliedModes += c;
 			appliedParams += " " + target->getNickname();
+			applied = true;
 		}
 		else if (c == 'l')
 		{
@@ -676,11 +681,20 @@ void Client::cmdMode(const Command &cmd)
 			}
 			else
 				channel->setUserLimit(0);
-			appliedModes += currentSign;
-			appliedModes += c;
+			applied = true;
 		}
 		else
 			sendNumeric(ERR_UNKNOWNMODE, std::string(1, c) + " :is unknown mode char to me");
+
+		if (applied)
+		{
+			if (lastEmittedSign != currentSign)
+			{
+				appliedModes += currentSign;
+				lastEmittedSign = currentSign;
+			}
+			appliedModes += c;
+		}
 	}
 	if (!appliedModes.empty())
 	{
