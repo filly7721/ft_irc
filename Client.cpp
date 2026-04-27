@@ -595,18 +595,19 @@ void Client::cmdMode(const Command &cmd)
 	}
 	if (cmd.params.size() < 2)
 	{
-		std::string modes = "+";
+		std::string modeLetters;
 		std::string modeParams;
-		if (channel->isInviteOnly())      modes += "i";
-		if (channel->isTopicRestricted()) modes += "t";
-		if (!channel->getKey().empty())  { modes += "k"; modeParams += " " + channel->getKey(); }
+		if (channel->isInviteOnly())      modeLetters += "i";
+		if (channel->isTopicRestricted()) modeLetters += "t";
+		if (!channel->getKey().empty())  { modeLetters += "k"; modeParams += " " + channel->getKey(); }
 		if (channel->getUserLimit() > 0)
 		{
-			modes += "l";
+			modeLetters += "l";
 			std::ostringstream oss;
 			oss << channel->getUserLimit();
 			modeParams += " " + oss.str();
 		}
+		std::string modes = modeLetters.empty() ? "" : ("+" + modeLetters);
 		sendNumeric(RPL_CHANNELMODEIS, channelName + " " + modes + modeParams);
 		return;
 	}
